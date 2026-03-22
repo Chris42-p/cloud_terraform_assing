@@ -30,7 +30,7 @@ resource "aws_vpc" "BCIT_cloud_assign" {
   enable_dns_support   = true #Enable DNS resolution within the VPC
 
   tags = {
-    Description=""
+    Description="This is the VPC for the Cloud Infrastructure Dev class"
   }
 }
 
@@ -38,35 +38,32 @@ resource "aws_vpc" "BCIT_cloud_assign" {
   #two public 
 resource "aws_subnet" "public" {
   #availability zones and VPC 
-  availability_zone = local.availability_zones
-  vpc_id            = aws_vpc.BCIT_cloud_assign
+  availability_zone = local.availability_zones[count.index]
+  vpc_id            = aws_vpc.BCIT_cloud_assign.id
 
   #setting two networks with CIDR addresses. 
-  count =length(local.public_subnet_cidrs)
+  count = length(local.public_subnet_cidrs)
   cidr_block = local.public_subnet_cidrs[count.index] # index throught to assign cidr addresses
 
-  tags ={
-    Description=""
-    Subnet="public_${local.public_subnet_cidrs[count.index]}" #name it properly
+  tags = {
+    Description = ""
+    Subnet = "public_${local.public_subnet_cidrs[count.index]}" #name it properly
   }
-
 }
+
   #two private 
 resource "aws_subnet" "private" {
   #set up the availability zones
-  availability_zone = local.availability_zones  
-  vpc_id = aws_vpc.BCIT_cloud_assign
+  availability_zone = local.availability_zones[count.index]
+  vpc_id = aws_vpc.BCIT_cloud_assign.id
 
   #set up the networks
   count = length(local.private_subnet_cidrs)
   cidr_block = local.private_subnet_cidrs[count.index]
 
-  tags ={
-    Description=""
-    Subnet="private_${local.public_subnet_cidrs[count.index]}" #name it properly
-  }
-}
-
+  tags = {
+    Description = ""
+    Subnet = "private_${local.private_subnet_cidrs[count.index]}" #name it properly
 
 #one regional NAT gatewat.
   #create Internet gateway
@@ -106,30 +103,30 @@ resource "aws_nat_gateway" "vpc_gateway" {
   #routing table  
     #private 
 resource "aws_route_table" "private" {
-  vpc_id=aws_vpc.BCIT_cloud_assign
+  vpc_id = aws_vpc.BCIT_cloud_assign.id
 
-  route{
-    cidr_block = var.internet_route
-    nat_gateway_id = aws_nat_gateway.vpc_gateway
+  route {
+    cidr_block     = var.internet_route
+    nat_gateway_id = aws_nat_gateway.vpc_gateway.id
   }
 
   tags = {
-    Description="This is the routing table for the private subnet"
-    Name="private route table"
+    Description = "This is the routing table for the private subnet"
+    Name        = "private route table"
   }
 }
     #public 
 resource "aws_route_table" "public" {
-  vpc_id= aws_vpc.BCIT_cloud_assign
+  vpc_id = aws_vpc.BCIT_cloud_assign.id
 
   route {
     cidr_block = var.internet_route #route to the internet
-    nat_gateway_id = aws_eip.NAT.id
+    gateway_id = aws_internet_gateway.main.id
   }
     
   tags = {
-    Description="This is the routing table for the public subnet"
-    Name="private route table"
+    Description = "This is the routing table for the public subnet"
+    Name        = "public route table"
   }
 }
 
@@ -143,7 +140,7 @@ resource "aws_route_table_association" "private" {
 }
     #public 
 resource "aws_route_table_association" "public" {
-  route_table_id = aws_route_table.public
+  route_table_id = aws_route_table.public.id
 
   count = length(local.public_subnet_cidrs)
   subnet_id = aws_subnet.public[count.index].id
@@ -153,7 +150,7 @@ resource "aws_route_table_association" "public" {
 #VPC endpoint for S3 for private subnets only 
 resource "aws_vpc_endpoint" "s3" {
   vpc_id = aws_vpc.BCIT_cloud_assign.id
-  route_table_ids = aws_route_table.private.id
+  route_table_ids = [aws_route_table.private.id]
 
   service_name = "com.amazonaws.${var.availability_region_one}.s3"
   vpc_endpoint_type = "Gateway"

@@ -3,8 +3,8 @@ VPC_cidr_block = "10.0.0.0/16"
 
 #availability zones. 
 num_availability_zones = 2
-availability_region_one = "ca-center-1"
-availability_region_two = "ca-east-1"
+availability_region_one = "ca-central-1a"
+availability_region_two = "ca-central-1b"
 
 #route to internet
 internet_route = "0.0.0.0/0"
