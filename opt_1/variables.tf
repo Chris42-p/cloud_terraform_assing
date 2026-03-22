@@ -15,8 +15,19 @@ variable "availability_region_two" {
     type = string
     nullable = false   
 }
+variable "num_availability_zones" {
+    description = "number of availability zones"
+    type = number
+}
 
 #subnet descriptions.
+    #forward to the internet
+variable "internet_route" {
+    description = "default route to the internet"
+    type = string
+    nullable = false
+}
+
     #public 
 variable "public_subnet_one" {
     description = "public subnet one "
@@ -28,6 +39,7 @@ variable "public_subnet_two" {
     type = string
     nullable = false
 }
+
     #private
 variable "private_subnet_one" {
     description = "private subnet one"
@@ -39,6 +51,7 @@ variable "private_subnet_two" {
     type = string 
     nullable = false
 }
+
 
 #tags 
 variable "public_tag" {
