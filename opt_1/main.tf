@@ -64,6 +64,8 @@ resource "aws_subnet" "private" {
   tags = {
     Description = ""
     Subnet = "private_${local.private_subnet_cidrs[count.index]}" #name it properly
+  }
+}
 
 #one regional NAT gatewat.
   #create Internet gateway
