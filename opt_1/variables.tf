@@ -2,7 +2,6 @@ variable "VPC_cidr_block" {
     description = "the cider block of the VPC"
     type = string
 }
-
 #region 
 variable "availability_region_one" {
     description = "availability region one"
@@ -43,7 +42,6 @@ variable "private_subnet_two" {
     description = "private subnet two"
     type = string 
 }
-
 
 #tags 
 variable "public_tag" {
