@@ -3,6 +3,10 @@ variable "VPC_cidr_block" {
     type = string
 }
 #region 
+variable "region" {
+    description = "region in canada that the network is available in "
+    type = string
+}
 variable "availability_region_one" {
     description = "availability region one"
     type = string
@@ -10,10 +14,6 @@ variable "availability_region_one" {
 variable "availability_region_two" {
     description = "availability region two"
     type = string
-}
-variable "num_availability_zones" {
-    description = "number of availability zones"
-    type = number
 }
 
 #subnet descriptions.

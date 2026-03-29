@@ -84,11 +84,52 @@ resource "aws_sns_topic_policy" "guard_duty_malware_alerts" {
 }
 
 #-----------Guard duty rule set
-
+#rule 1 - IAM user created
 resource "aws_cloudwatch_event_rule" "iam_user_created" {
     name="iam-user-created"
     description = "Triggered because an IAM user was created"
 
-    
-
+    event_pattern = jsonencode({
+        source=["aws.iam"]
+        detail-type=["aws api call via CloudTrail"]
+        detail={
+            evertSource=["iam.amazonaws.com"]
+            eventName=["CreateUser"]
+        }
+    })
 }
+
+#rule 2 - IAM ID center user created
+resource "aws_cloudwatch_event_rule" "sso_user_created" {
+    name="sso-user-created"
+    description = "Triggers whe IAM ID center user is created"
+
+    event_pattern = jsondecode({
+        source=["aws.sso-directory"]
+        detail-type=["AWS API Call via CloudTrail"]
+        detail={
+            eventSource=["sso-directory.amazonaws.com"]
+            eventName=["CreateUser"]
+        }
+    })
+}
+
+#rule 3 - GuardDuty Critical findings only 
+resource "aws_cloudwatch_event_rule" "guardduty_critical_event" {
+    name="guardduty-critical-findings"
+    description = "triggers on guardduty critical serverity findings only "
+
+    event_pattern = jsondecode({
+        source=["aws.guardduty"]
+        detail-type=["GuardDuty findings"]
+        detail={
+            serverity=[{numeric = [">=",9.0]}] #7,8 =high, 9,10=critical
+        }
+
+    })
+}
+
+#rule 4 -KMS key scheduled for deletion 
+
+
+

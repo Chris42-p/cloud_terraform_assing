@@ -1,164 +1,181 @@
-#config of AWS provider 
-provider "aws" {
-  region = var.availability_region_one
+# =============== Option 1 Assignment: Make a VPC  ==========
+#   By: Chris 
+#   Date: 3/28'26
 
+# move from the internet into the network 
+# VPC-> Internet gateway-> IP -> Public network -> NAT -> Private network -> S3 Endpoint
+# ===========================================================
+
+#aws infrastructure 
+provider "aws" { 
+  region =var.region
+ 
   default_tags {
     tags = {
-      Owner = "Chris"
-      Name  = "BCIT_cloud_assignment"
-      Env   = "dev"
-    }
+      Owner="Chris"
+      Teacher="Denis"
+      Assign = "Cloud Infra assign"
+    } 
   }
+  #ref: https://registry.terraform.io/providers/hashicorp/aws/latest/docs
 }
-
 locals {
-  #availability zones. 
-  availability_zones=  [var.availability_region_one, var.availability_region_two]
+  public_subnets= {
+    zone1 ={ cidr= var.public_subnet_one, az=var.availability_region_one} 
+    zone2 ={ cidr= var.public_subnet_two, az=var.availability_region_two}
+  }
 
-  #CIDR for public and private
-  public_subnet_cidrs=[var.public_subnet_one, var.public_subnet_two]
-  private_subnet_cidrs=[var.private_subnet_one,var.private_subnet_two]
-}
-
-
-#Create VPC 
-resource "aws_vpc" "BCIT_cloud_assign" {
-  cidr_block = var.VPC_cidr_block
-
-  #DNS settings 
-  enable_dns_hostnames = true #Assign public DNS hostname to instances in public Ips
-  enable_dns_support   = true #Enable DNS resolution within the VPC
-
-  tags = {
-    Description="This is the VPC for the Cloud Infrastructure Dev class"
+  private_subnets={
+    zone1={cidr=var.private_subnet_one, az=var.availability_region_one }
+    zone2={cidr=var.private_subnet_two, az=var.availability_region_two  }
   }
 }
 
-#two public and two private subnets
-  #two public 
-resource "aws_subnet" "public" {
-  #availability zones and VPC 
-  availability_zone = local.availability_zones[count.index]
-  vpc_id            = aws_vpc.BCIT_cloud_assign.id
+# Give access into network 
+#----------------------VPC -----------------------   
+  resource "aws_vpc" "main" {
+    cidr_block = var.VPC_cidr_block
+    enable_dns_support =true
+    enable_dns_hostnames = true  #allow DNS in the network ("example.io" ->10.0.1.2 )
 
-  #setting two networks with CIDR addresses. 
-  count = length(local.public_subnet_cidrs)
-  cidr_block = local.public_subnet_cidrs[count.index] # index throught to assign cidr addresses
-
-  tags = {
-    Description = ""
-    Subnet = "public_${local.public_subnet_cidrs[count.index]}" #name it properly
+    tags = {
+      Description="VPC"    
+    }
+    # reg:https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpc
   }
-}
+  #----------------------Internet Gateway --------
+  resource "aws_internet_gateway" "main" {#give VPC internet  
+    vpc_id = aws_vpc.main.id
 
-  #two private 
-resource "aws_subnet" "private" {
-  #set up the availability zones
-  availability_zone = local.availability_zones[count.index]
-  vpc_id = aws_vpc.BCIT_cloud_assign.id
+    tags = {
+      Description="internet gateway for the public VPC"
+    }
+    depends_on = [ aws_vpc.main ]
 
-  #set up the networks
-  count = length(local.private_subnet_cidrs)
-  cidr_block = local.private_subnet_cidrs[count.index]
-
-  tags = {
-    Description = ""
-    Subnet = "private_${local.private_subnet_cidrs[count.index]}" #name it properly
+    # ref: https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/internet_gateway
   }
-}
-
-#one regional NAT gatewat.
-  #create Internet gateway
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.BCIT_cloud_assign.id #assign gateway to VPC
-
-  tags = {
-    Description="The internet gateway for the VPC"
-    Name="main internet gateway"
+  #---------------------Elastic IP ---------------
+  resource "aws_eip" "nat" {
+    domain = "vpc"
+    tags = {
+      Description="elastic IP for the Nat gateway"
+    }
+    depends_on = [ aws_internet_gateway.main ]
+    # ref:https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eip
   }
-}
+  #------------ Nat Gateway-----------------------
+  resource "aws_nat_gateway" "private_network" {
+    allocation_id = aws_eip.nat.id
+    subnet_id = aws_subnet.public[keys(local.public_subnets)[0]].id #going to route private traffic through public subnet
 
-  #create elastic IP for NAT 
-resource "aws_eip" "NAT" {
-  #assign gateway to NAT
-  domain = "vpc"
-  depends_on = [ aws_internet_gateway.main ]
-
-  tags = {
-    Description= "assigned elastic IP that will be attached to NAT"
-    Name= "nat-eip"
+    tags={
+      Description="nat gateway for private subnet"
+    }
+    depends_on = [ aws_internet_gateway.main ]
   }
-}
+#-------------------------------------------------
 
-  #NAT gateway
-resource "aws_nat_gateway" "vpc_gateway" {
-  allocation_id = aws_eip.NAT.id
-  subnet_id = aws_subnet.public[0].id #place routing into public subnet
-  depends_on = [ aws_internet_gateway.main ]
+# The public network 
+#--------------------Public network---------------------   
+  resource "aws_subnet" "public" {
+    vpc_id = aws_vpc.main.id        #connect to VPC 
 
-  tags = {
-    Description =""
-    Name="nat-gateway"
+    for_each = local.public_subnets #loop over values. 
+    cidr_block = each.value.cidr    #cidr values assignment
+    availability_zone = each.value.az        #availability zones assignment
+
+    tags = {
+      Description= "public subnet for the VPC" 
+      Subnet_num="public subnet ${each.key} /${length(local.public_subnets)}"
+    }
+
+    depends_on = [ aws_vpc.main ]
+    # ref: https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/subnet
   }
-}
-  
-  #routing table  
-    #private 
-resource "aws_route_table" "private" {
-  vpc_id = aws_vpc.BCIT_cloud_assign.id
+  #--------------------Public network route table -------- 
+  resource "aws_route_table" "public" {
+    vpc_id = aws_vpc.main.id
 
-  route {
-    cidr_block     = var.internet_route
-    nat_gateway_id = aws_nat_gateway.vpc_gateway.id
+    route{
+      cidr_block=var.internet_route #send outbound traffic to internet 
+      gateway_id=aws_internet_gateway.main.id #send to internet gateway
+    }
+    tags = {
+      Description="route table for the public subnet"
+    }
+    depends_on = [ aws_internet_gateway.main ]
+    # ref: https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route_table
   }
+  resource "aws_route_table_association" "public" {
+    for_each =local.public_subnets
+    subnet_id=aws_subnet.public[each.key].id
+    route_table_id=aws_route_table.public.id
+    # ref: https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route_table_association
 
-  tags = {
-    Description = "This is the routing table for the private subnet"
-    Name        = "private route table"
+    depends_on = [ aws_route_table.public ]
   }
-}
-    #public 
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.BCIT_cloud_assign.id
+#-------------------------------------------------------
 
-  route {
-    cidr_block = var.internet_route #route to the internet
-    gateway_id = aws_internet_gateway.main.id
+
+# The private network 
+#------------ Private Network -----------------
+  resource "aws_subnet" "private" {
+    vpc_id = aws_vpc.main.id
+    for_each = local.private_subnets
+    cidr_block = each.value.cidr
+    availability_zone = each.value.az
+
+    tags = {
+      Description="Private subnet for VPC"
+      Subnet_num="private subnet ${each.key} /${length(local.private_subnets)}"
+    }
+    depends_on = [ aws_vpc.main ]
   }
+  #-------------Private network routing table----
+  resource "aws_route_table" "private" {
+    for_each = local.private_subnets
+    vpc_id = aws_vpc.main.id
+
+    route {
+      cidr_block = "0.0.0.0/0" #allow outbound traffic 
+      nat_gateway_id = aws_nat_gateway.private_network.id
+    }
+
+    tags = {
+      Description= "route table for private subnet"
+    }
+    depends_on = [ aws_nat_gateway.private_network ]
+
+    # ref: https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route_table
+  }
+  resource "aws_route_table_association" "private" {
+    for_each = local.private_subnets
+    subnet_id = aws_subnet.private[each.key].id
+    route_table_id = aws_route_table.private[each.key].id
+
+    depends_on = [ aws_route_table.private ]
+  }
+#----------------------------------------------
+
+#S3 VPC endpoint
+#-------------------S3 endpoint-------------------
+  resource "aws_vpc_endpoint" "s3" {
+    vpc_endpoint_type = "Gateway"
+    vpc_id = aws_vpc.main.id
+
+    service_name = "com.amazonaws.${var.region}.s3"
     
-  tags = {
-    Description = "This is the routing table for the public subnet"
-    Name        = "public route table"
+    #loop through private tables, and associcate Ids
+    route_table_ids = [for rt in aws_route_table.private: rt.id]
+
+    tags = {
+      Description="S3 endpoint for private subnets only"
+    }
+
+    depends_on = [ aws_route_table.private ]
+
+    # ref:https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpc_endpoint.html  
   }
-}
-
-  #attach routing table to subnets. 
-    #private
-resource "aws_route_table_association" "private" {
-  route_table_id = aws_route_table.private.id
-
-  count =length(local.private_subnet_cidrs)
-  subnet_id = aws_subnet.private[count.index].id
-}
-    #public 
-resource "aws_route_table_association" "public" {
-  route_table_id = aws_route_table.public.id
-
-  count = length(local.public_subnet_cidrs)
-  subnet_id = aws_subnet.public[count.index].id
-}
+#-------------------------------------------------
 
 
-#VPC endpoint for S3 for private subnets only 
-resource "aws_vpc_endpoint" "s3" {
-  vpc_id = aws_vpc.BCIT_cloud_assign.id
-  route_table_ids = [aws_route_table.private.id]
-
-  service_name = "com.amazonaws.${var.availability_region_one}.s3"
-  vpc_endpoint_type = "Gateway"
-
-  tags = {
-    Name="s3-endpoint"
-    Description="Let private VPC requests access s3 bucket"
-  }
-}
