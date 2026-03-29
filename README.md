@@ -1,14 +1,32 @@
-# FSCT 8592 Terrafrom Assignment
+# Terrafrom Assignment
 
-## Design 
-
+## Option 1: VPC, two networks, routing, and S3
+Instructions are as follows:
+| Instructions | Network Diagram |
+|--------------|-----------------|
+| <img src="opt_1/z_instructions.png" alt="The instructions for the assignment"> | <img src="opt_1/z_network_diagram.png" alt="Network diagram for the assignment"> |
 
 ## Implementation. 
-
+Please refer to "opt_1" folder in this file. 
 
 ## Testing. 
 
+|description | proof |
+|--|--|
+|Terraform compiled & resources created |<img src="markdown_assets/worked_terraform_apply.png" alt="Image of terraform executing properly" display="style: block" width="600"/>|
+|AWS management console VPC displayed|<img src="markdown_assets/worked_VPC_configured.png" alt="Image of terraform executing properly" display="style: block" width="600"/>|
 
+
+###  Initalize, Planning and Deploying Terraform 
+    terraform init     #download packages 
+    terraform plan     #show the design
+    terraform apply    #apply the design
+    terraform destroy  #delete the infrastructure 
+
+<hr>
+<br>
+<br>
+<br>
 
 ## Terraform Installation and Setup Guide: Table of Contents
 - [Installing Terraform](#installing-terraform)
@@ -28,8 +46,11 @@
 
 ### Extract Terraform
 Right-click the .zip file and select "Extract All".
-
-![Right-click the file and click "Extract All"](markdown_assets/extract_all.png)
+<img src="markdown_assets/extract_all.png"
+    width="400"
+    style="display: block"
+    alt='Right-click the file and click "Extract All"'
+/>
 
 ### Add Terraform to PATH Variable
 1. Press the Windows key or the Windows button (blue square) on the left-hand side.
