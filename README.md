@@ -1,4 +1,6 @@
-# Terraform Assignment, Verified by Denis on 29-March-2026.
+# Terraform Assignment
+## $${\color{red}Verified-on-29.March.2026.}$$
+No additional commits will be verified.
 
 ## Option 1: VPC, two networks, routing, and S3
 Instructions are as follows:
